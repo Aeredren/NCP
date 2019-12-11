@@ -10,8 +10,11 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#define SEQ_NUMBER_LENGTH 6
+#define DATA_LENGTH 1018
+
 // filename, pkt size -> array of buffer containing file data, ready to be sent
-char** bufferingFile (char filename, int pktSize);
+char** bufferingFile (char* filename, int pktSize);
 // any int -> a 6 digit sequence number string
 char* itoseq (int seqNb);
 // sockaddr pointer, port -> socket number initialized and binded
@@ -19,7 +22,7 @@ int initSocket (struct sockaddr_in address, socklen_t sockaddr_in_length, int po
 
 
 int main(int argc, const char* argv[]) {
-	if (argc != 2){
+	/*if (argc != 2){
 		printf ("Right usage is : server <PortNumber>\n");
 		exit(EXIT_FAILURE);
 	}
@@ -43,14 +46,53 @@ int main(int argc, const char* argv[]) {
 			sleep(10);
 		}
 	}
-	return(EXIT_SUCCESS);
+	return(EXIT_SUCCESS);*/
+
+	char** buffedArray;
+	buffedArray = bufferingFile("test.jpeg", 1024);
 }
 
-char** bufferingFile (char filename, int pktSize){
-	char** bufferArray;
-
+char** bufferingFile (char* filename, int pktSize){
 	FILE* fp;
+	int fileSize;
+	char* seqNb;
+	int nbBuff;
+	int j=0;
 
+	//Open file
+	sprintf (filename, "./files/%s", filename);
+	printf("%s",filename);
+	fp = fopen(filename, "r");
+
+	if (fp == NULL)
+	{
+		printf("\nFile open failed!\n");
+		exit(0);
+	} else printf("\nFile Successfully opened!\n");
+
+	//Find file size
+	fseek(fp, 0L, SEEK_END);
+	fileSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	//copy of file into the buffer
+	char buffer[fileSize];
+	fread(buffer,fileSize,1,fp);
+
+	//Number of buffers to create
+	nbBuff = (fileSize/1018)+1;
+
+	//Creation of buffer to return
+	char bufferArray[nbBuff][pktSize];
+
+	for(int i = 0; i< nbBuff-1; i++)
+	{
+		seqNb = itoseq(i);
+		j = i*DATA_LENGTH;
+		memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
+		memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,DATA_LENGTH);
+
+	}
 	return bufferArray;
 }
 
@@ -86,4 +128,3 @@ int initSocket (struct sockaddr_in address, socklen_t sockaddr_in_length, int po
 
 	return sock;
 }
-
