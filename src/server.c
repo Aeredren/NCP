@@ -29,20 +29,41 @@ int main(int argc, const char* argv[]) {
 	socklen_t sockaddr_in_length = sizeof(struct sockaddr_in);
 	int socket_accept = initSocket(listen_addr_accept,sockaddr_in_length, port_accept);
 
+
 	if (fork()!=0){
-		printf("I'm the father\n");
-		sleep(15);
+		//printf("I'm the father\n");
 	} else {
+
+		//creating a pipe to communicate ack
+		int pipefd[2];
+		if (-1==pipe(pipefd){
+			printf ("pipe creation failed\n");
+			exit(EXIT_FAILURE);
+		}
+
 		if (0!=fork()){
-			sleep(3);
-			printf("I'm the son\n");
-			sleep(12);
+			//printf("I'm the son\n");
+			size_t ackSize=sizeof(char)*6
+			char* ack = malloc(ackSize);
+			
+			while (1) {
+				read (pipefd[0], ack, ackSize);
+				printf("%s\n", ack);
+			}
 		}else {
-			sleep(5);
-			printf("I'm the son's son\n");
-			sleep(10);
+			//printf("I'm the son's son\n");
+			size_t ackSize=sizeof(char)*6
+			char* ack = malloc(ackSize);
+			while (1){
+				select {
+					recvfrom();
+				}
+
+				write(pipefd[1], ack, ackSize)
+			}
 		}
 	}
+
 	return(EXIT_SUCCESS);
 }
 
