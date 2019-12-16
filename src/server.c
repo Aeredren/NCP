@@ -10,8 +10,12 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#define ACK_LENGTH 6
+#define SEG_SIZE 1024
+#define INIT_WIN_SIZE 5
+
 // filename, pkt size -> array of buffer containing file data, ready to be sent
-char** bufferingFile (char filename, int pktSize);
+char** bufferingFile (char* filename, int pktSize);
 // any int -> a 6 digit sequence number string
 char* itoseq (int seqNb);
 // sockaddr pointer, port -> socket number initialized and binded
@@ -29,45 +33,72 @@ int main(int argc, const char* argv[]) {
 	socklen_t sockaddr_in_length = sizeof(struct sockaddr_in);
 	int socket_accept = initSocket(listen_addr_accept,sockaddr_in_length, port_accept);
 
+	size_t synSize = 16*sizeof(char);
+	char* synBuffer = malloc(synSize);
+	int port_com = port_accept;
 
-	if (fork()!=0){
-		//printf("I'm the father\n");
-	} else {
-
-		//creating a pipe to communicate ack
-		int pipefd[2];
-		if (-1==pipe(pipefd){
-			printf ("pipe creation failed\n");
+	while (1) {
+		recvfrom(socket_accept, synBuffer, synSize, 0, (struct sockaddr*) &listen_addr_accept, &sockaddr_in_length );
+		if (strncmp("SYN", synBuffer, 3) != 0) {
+			printf("This is not a SYN\n");
 			exit(EXIT_FAILURE);
+		}else{
+			printf("SYN received\n");
 		}
 
-		if (0!=fork()){
-			//printf("I'm the son\n");
-			size_t ackSize=sizeof(char)*6
+		port_com++;
+		printf("port for socket_com : %d\n",port_com );
+
+		//Creation et bind du socket_com
+		struct sockaddr_in listen_addr_com;
+		int socket_com = initSocket(listen_addr_com,sockaddr_in_length, port_com);
+
+
+		if (fork()!=0){
+			printf("I'm the father\n");
+
+			close (socket_com);
+			// syn-ack
+			sprintf(synBuffer, "%s%d", "SYN-ACK", port_com);
+			sendto(socket_accept, (const char *)synBuffer, strlen(synBuffer), MSG_CONFIRM, (const struct sockaddr *) &listen_addr_accept, sockaddr_in_length);
+			printf("SYN-ACK send\n");
+			//ack
+			recvfrom(socket_accept, synBuffer, synSize, 0, (struct sockaddr*) &listen_addr_accept, &sockaddr_in_length );
+			if (strncmp("ACK", synBuffer, 3) != 0) {
+				printf("This is not an ACK\n");
+				exit(EXIT_FAILURE);
+			}else printf("ACK received\n");
+
+		} else {
+			printf("I'm the son\n");
+			close (socket_accept);
+
+			size_t filenameSize = 128*sizeof(char);
+			char* filename = malloc(filenameSize);
+			recvfrom(socket_com, filename, filenameSize, 0, (struct sockaddr*) &listen_addr_com, &sockaddr_in_length );
+			//char** segmentArray = bufferingFile (filename, SEG_SIZE);
+
+			size_t ackSize = sizeof(char)*ACK_LENGTH;
 			char* ack = malloc(ackSize);
-			
+			int window = INIT_WIN_SIZE;
+
 			while (1) {
-				read (pipefd[0], ack, ackSize);
-				printf("%s\n", ack);
-			}
-		}else {
-			//printf("I'm the son's son\n");
-			size_t ackSize=sizeof(char)*6
-			char* ack = malloc(ackSize);
-			while (1){
-				select {
-					recvfrom();
+				for (window, window>0, window--){
+					//send the messages
 				}
 
-				write(pipefd[1], ack, ackSize)
+				//select timeout on 1 ack
+
+				//Choose what to do
 			}
+			return(EXIT_SUCCESS);
 		}
 	}
 
 	return(EXIT_SUCCESS);
 }
 
-char** bufferingFile (char filename, int pktSize){
+char** bufferingFile (char* filename, int pktSize){
 	char** bufferArray;
 
 	FILE* fp;
@@ -81,7 +112,7 @@ char* itoseq (int seqNb){
 	seqNb = seqNb%1000000;
 	sprintf(seqNbStr, "%d", seqNb);
 	int strSize = strlen(seqNbStr);
-	int nbZero = 6-strSize;
+	int nbZero = ACK_LENGTH-strSize;
 	memmove(&seqNbStr[nbZero],&seqNbStr[0],strSize);
 	for (int i=0; i<nbZero; i++) seqNbStr[i]='0';
 
