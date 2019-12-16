@@ -13,8 +13,8 @@
 #define SEQ_NUMBER_LENGTH 6
 #define DATA_LENGTH 1018
 
-// filename, pkt size -> array of buffer containing file data, ready to be sent
-char** bufferingFile (char* filename, int pktSize);
+void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff);
+
 // any int -> a 6 digit sequence number string
 char* itoseq (int seqNb);
 // sockaddr pointer, port -> socket number initialized and binded
@@ -27,11 +27,9 @@ int main(int argc, const char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	int port_accept = atoi(argv[1]);
-
 	struct sockaddr_in listen_addr_accept;
 	socklen_t sockaddr_in_length = sizeof(struct sockaddr_in);
 	int socket_accept = initSocket(listen_addr_accept,sockaddr_in_length, port_accept);
-
 	if (fork()!=0){
 		printf("I'm the father\n");
 		sleep(15);
@@ -47,22 +45,17 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 	return(EXIT_SUCCESS);*/
-
-	char** buffedArray;
-	buffedArray = bufferingFile("test.jpeg", 1024);
-}
-
-char** bufferingFile (char* filename, int pktSize){
 	FILE* fp;
 	int fileSize;
-	char* seqNb;
+	char fileBuff[100];
 	int nbBuff;
-	int j=0;
+	int pktSize = 1018;
+	char** bufferArray;
 
 	//Open file
-	sprintf (filename, "./files/%s", filename);
-	printf("%s",filename);
-	fp = fopen(filename, "r");
+	sprintf (fileBuff, "./files/%s", "test.jpg");
+	printf("%s",fileBuff);
+	fp = fopen(fileBuff, "r");
 
 	if (fp == NULL)
 	{
@@ -75,25 +68,57 @@ char** bufferingFile (char* filename, int pktSize){
 	fileSize = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
-	//copy of file into the buffer
-	char buffer[fileSize];
-	fread(buffer,fileSize,1,fp);
+	printf("File size %d\n",fileSize );
 
 	//Number of buffers to create
 	nbBuff = (fileSize/1018)+1;
+	printf("Number of pkts %d \n", nbBuff );
 
-	//Creation of buffer to return
-	char bufferArray[nbBuff][pktSize];
+	bufferArray = malloc(sizeof(char*)*nbBuff);
+	for (int i =0; i<nbBuff;i++){
+		bufferArray[i]=malloc(sizeof(char)*pktSize);
+	}
 
-	for(int i = 0; i< nbBuff-1; i++)
+
+	bufferingFile(bufferArray, fp, fileSize, nbBuff);
+	for(int i = 0; i< 17; i++)
+	{
+		printf("%s\n", bufferArray[i] );
+	}
+
+	//printf("Dernier: %s\n", bufferArray[16]);
+
+	return(EXIT_SUCCESS);
+}
+
+void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
+	int j=0;
+	char* seqNb;
+
+	//copy of file into the buffer
+	char buffer[fileSize];
+	fread(buffer,fileSize,1,fp);
+	/*for(int i = 0; i<sizeof(buffer); i++)
+	{
+		printf("data: %s\n",buffer[i]);
+	}*/
+
+	for(int i = 0; i< nbBuff; i++)
 	{
 		seqNb = itoseq(i);
 		j = i*DATA_LENGTH;
 		memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
 		memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,DATA_LENGTH);
-
 	}
-	return bufferArray;
+
+	printf("%s\n", "Alloc ok");
+
+	/*for(int i = 0; i< nbBuff; i++)
+	{
+		printf("%s\n", bufferArray[i] );
+	}*/
+
+	return;
 }
 
 char* itoseq (int seqNb){
