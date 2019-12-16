@@ -80,7 +80,7 @@ int main(int argc, const char* argv[]) {
 			size_t filenameSize = 128*sizeof(char);
 			char* filename = malloc(filenameSize);
 			recvfrom(socket_com, filename, filenameSize, 0, (struct sockaddr*) &listen_addr_com, &sockaddr_in_length );
-			
+
 			FILE* fp;
 			int fileSize;
 			char fileBuff[100];
@@ -119,8 +119,9 @@ int main(int argc, const char* argv[]) {
 			int window = INIT_WIN_SIZE;
 
 			while (1) {
-				for (window, window>0, window--){
+				for (window; window>0; window--){
 					//send the messages
+					sendto(socket_com, bufferArray[ackInt],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 				}
 
 				//select timeout on 1 ack
