@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 
 #define SEQ_NUMBER_LENGTH 6
@@ -122,6 +124,7 @@ int main(int argc, const char* argv[]) {
 				}
 
 				//select timeout on 1 ack
+				
 
 				//Choose what to do
 			}
