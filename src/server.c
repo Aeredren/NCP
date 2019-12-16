@@ -17,6 +17,7 @@
 #define ACK_LENGTH 6
 #define SEG_SIZE 1024
 #define INIT_WIN_SIZE 5
+#define INITIAL_TIMEOUT 500
 
 
 // filename, pkt size -> array of buffer containing file data, ready to be sent
@@ -25,7 +26,8 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff);
 char* itoseq (int seqNb);
 // sockaddr pointer, port -> socket number initialized and binded
 int initSocket (struct sockaddr_in address, socklen_t sockaddr_in_length, int port);
-
+// convert an ack to its seqnumber string
+void acktoseq (char* ack);
 
 int main(int argc, const char* argv[]) {
 	if (argc != 2){
@@ -115,17 +117,49 @@ int main(int argc, const char* argv[]) {
 
 			size_t ackSize = sizeof(char)*ACK_LENGTH;
 			char* ack = malloc(ackSize);
-			int ackInt = 0;
+			int lastAck = 0;
+			int currentAck = 0;
 			int window = INIT_WIN_SIZE;
+			int lastSeg = 0;
+
+			printf("INITIALIZED FDSET\n");
+			fd_set read_set;
+			FD_ZERO(&read_set);
+			FD_SET(socket_com, &read_set);
+			printf("INITIALIZED TIMEVAL\n");
+			struct timeval timeout;
+			timeout.tv_sec=0;
+			timeout.tv_sec=INITIAL_TIMEOUT;
 
 			while (1) {
 				for (window; window>0; window--){
 					//send the messages
-					sendto(socket_com, bufferArray[ackInt],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+					printf("sending : %d\n", lastSeg);
+					sendto(socket_com, bufferArray[lastSeg],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+					lastSeg++;
 				}
 
 				//select timeout on 1 ack
-				
+				int selector = select(socket_com+1, &read_set, NULL, NULL, &timeout);
+				switch (selector) {
+					case -1 : // if error
+						exit(EXIT_FAILURE);
+						break;
+					case 0 : //if we timed out
+						// do some thing
+						printf ("TIMEOUT !!\n");
+						break;
+					default : //if a ack is receive
+						//do some thing
+						recvfrom(socket_com, ack, ackSize+3, 0, (struct sockaddr*) &listen_addr_com, &sockaddr_in_length );
+						memmove (&ack[0], &ack[3], 7);
+						currentAck=atoi(ack);
+						printf ("ack is : %s | ack value is : %d\n", ack, currentAck);
+						if (currentAck>lastAck){
+							lastAck=currentAck;
+						}
+						break;
+				}
 
 				//Choose what to do
 			}
@@ -186,4 +220,8 @@ int initSocket (struct sockaddr_in address, socklen_t sockaddr_in_length, int po
 	} else printf("socket binded \n" );
 
 	return sock;
+}
+
+void acktoseq (char* ack) {
+	memmove (&ack[0], &ack[3], 6);
 }
