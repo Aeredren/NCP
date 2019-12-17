@@ -119,8 +119,11 @@ int main(int argc, const char* argv[]) {
 			char* ack = malloc(ackSize);
 			int lastAck = 0;
 			int currentAck = 0;
+			int maxWindow = INIT_WIN_SIZE;
 			int window = INIT_WIN_SIZE;
 			int lastSeg = 0;
+			int endIsAck = 0;
+			int duplicateAck = 0;
 
 			printf("INITIALIZED FDSET\n");
 			fd_set read_set;
@@ -128,15 +131,15 @@ int main(int argc, const char* argv[]) {
 			FD_SET(socket_com, &read_set);
 			printf("INITIALIZED TIMEVAL\n");
 			struct timeval timeout;
-			timeout.tv_sec=0;
-			timeout.tv_sec=INITIAL_TIMEOUT;
+			timeout.tv_sec=1;
+			timeout.tv_usec=INITIAL_TIMEOUT;
 
-			while (1) {
+			while (!endIsAck) {
 				for (window; window>0; window--){
 					//send the messages
 					printf("sending : %d\n", lastSeg);
 					sendto(socket_com, bufferArray[lastSeg],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
-					lastSeg++;
+					if (lastSeg<nbBuff-1) lastSeg++;
 				}
 
 				//select timeout on 1 ack
@@ -146,23 +149,41 @@ int main(int argc, const char* argv[]) {
 						exit(EXIT_FAILURE);
 						break;
 					case 0 : //if we timed out
-						// do some thing
-						printf ("TIMEOUT !!\n");
+						printf ("TIMEOUT, resend %d\n", lastAck+1);
+						sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+						FD_ZERO(&read_set);
+						FD_SET(socket_com, &read_set);
 						break;
 					default : //if a ack is receive
-						//do some thing
 						recvfrom(socket_com, ack, ackSize+3, 0, (struct sockaddr*) &listen_addr_com, &sockaddr_in_length );
-						memmove (&ack[0], &ack[3], 7);
+						memmove (&ack[0], &ack[3], 7); // remove the ACK of ACK000001
 						currentAck=atoi(ack);
 						printf ("ack is : %s | ack value is : %d\n", ack, currentAck);
 						if (currentAck>lastAck){
+							duplicateAck=0;
+							window+=currentAck-lastAck;
+							if (window>maxWindow) window=maxWindow;
 							lastAck=currentAck;
+							printf ("Last ack = %d\n", lastAck);
+						}else if (currentAck==lastAck) {
+							duplicateAck++;
+							if (duplicateAck>=2) {
+								printf ("3 DUPLICATE, resend %d\n", lastAck+1);
+								sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+							}
 						}
 						break;
 				}
+				timeout.tv_sec=1;
+				timeout.tv_usec=INITIAL_TIMEOUT;
 
-				//Choose what to do
+				if (lastAck == nbBuff-1) endIsAck = 1;
 			}
+
+			printf ("SENDING FIN, nbBuff=%d\n",nbBuff);
+			sendto(socket_com, "FIN", 3, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+			sleep(1);
+			close(socket_com);
 			return(EXIT_SUCCESS);
 		}
 	}
@@ -177,6 +198,7 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 	//copy of file into the buffer
 	char buffer[fileSize];
 	fread(buffer,fileSize,1,fp);
+	printf("%d%d%d\n",buffer[1],buffer[2],buffer[3]);
 
 	for(int i = 0; i< nbBuff; i++)
 	{
@@ -184,6 +206,8 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 		j = i*DATA_LENGTH;
 		memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
 		memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,DATA_LENGTH);
+		printf("%d%d%d\n",bufferArray[0][1],bufferArray[0][2],bufferArray[0][3]);
+		sleep(10);
 	}
 
 	return;
