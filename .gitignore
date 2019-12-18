@@ -6,3 +6,4 @@ bin/server.x86_64
 *.png
 *.jpg
 *.jpeg
+*.hex

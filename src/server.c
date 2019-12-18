@@ -85,13 +85,13 @@ int main(int argc, const char* argv[]) {
 
 			FILE* fp;
 			int fileSize;
-			char fileBuff[100];
+			char nameBuff[100];
 			int nbBuff;
 			char** bufferArray;
 
 			//Open file
-			sprintf (fileBuff, "./files/%s", filename);
-			fp = fopen(fileBuff, "r");
+			sprintf (nameBuff, "./files/%s", filename);
+			fp = fopen(nameBuff, "r");
 
 			if (fp == NULL)
 			{
@@ -105,12 +105,12 @@ int main(int argc, const char* argv[]) {
 			fseek(fp, 0, SEEK_SET);
 
 			//Number of buffers to create
-			nbBuff = (fileSize/1018)+1;
+			nbBuff = (fileSize/1018)+2;
 			printf("Number of segment : %d\n", nbBuff );
 
 			bufferArray = malloc(sizeof(char*)*nbBuff);
 			for (int i =0; i<nbBuff;i++){
-				bufferArray[i]=malloc(sizeof(char)*DATA_LENGTH);
+				bufferArray[i]=malloc(sizeof(char)*SEG_SIZE);
 			}
 
 			bufferingFile(bufferArray, fp, fileSize, nbBuff);
@@ -193,22 +193,27 @@ int main(int argc, const char* argv[]) {
 
 void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 	int j=0;
+	int i;
 	char* seqNb;
 
 	//copy of file into the buffer
 	char buffer[fileSize];
 	fread(buffer,fileSize,1,fp);
-	printf("%d%d%d\n",buffer[1],buffer[2],buffer[3]);
 
-	for(int i = 0; i< nbBuff; i++)
+	bzero(bufferArray[0], SEG_SIZE);
+
+	for(i = 1; i< nbBuff-1; i++)
 	{
 		seqNb = itoseq(i);
-		j = i*DATA_LENGTH;
+		j = (i-1)*DATA_LENGTH;
 		memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
 		memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,DATA_LENGTH);
-		printf("%d%d%d\n",bufferArray[0][1],bufferArray[0][2],bufferArray[0][3]);
-		sleep(10);
 	}
+
+	seqNb = itoseq(i);
+	j = (i-1)*DATA_LENGTH;
+	memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
+	memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,fileSize-j);
 
 	return;
 }
