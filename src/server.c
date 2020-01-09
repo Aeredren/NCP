@@ -124,6 +124,9 @@ int main(int argc, const char* argv[]) {
 			int lastSeg = 0;
 			int endIsAck = 0;
 			int duplicateAck = 0;
+			double sendingTime;
+			double sendingRate;
+			struct timeval startS, stopS;
 
 			printf("INITIALIZED FDSET\n");
 			fd_set read_set;
@@ -133,6 +136,7 @@ int main(int argc, const char* argv[]) {
 			struct timeval timeout;
 			timeout.tv_sec=1;
 			timeout.tv_usec=INITIAL_TIMEOUT;
+			gettimeofday(&startS, NULL);
 
 			while (!endIsAck) {
 				for (window; window>0; window--){
@@ -182,6 +186,15 @@ int main(int argc, const char* argv[]) {
 
 			printf ("SENDING FIN, nbBuff=%d\n",nbBuff);
 			sendto(socket_com, "FIN", 3, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+			gettimeofday(&stopS, NULL);
+			sendingTime= (stopS.tv_sec - startS.tv_sec)*1000000 + (stopS.tv_usec - startS.tv_usec);
+			printf("Sending time: %f\n", sendingTime );
+			printf("File size: %d \n", fileSize );
+			printf(" StartS: %ld\n", startS.tv_sec);
+			printf(" StopS: %ld\n", stopS.tv_sec );
+			sendingRate= fileSize/sendingTime;
+			printf("Transmission rate: %f\n", sendingRate);
+
 			sleep(1);
 			close(socket_com);
 			return(EXIT_SUCCESS);
