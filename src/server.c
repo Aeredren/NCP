@@ -117,29 +117,38 @@ int main(int argc, const char* argv[]) {
 
 			size_t ackSize = sizeof(char)*ACK_LENGTH;
 			char* ack = malloc(ackSize);
-			int lastAck = 0;
+			int lastAck = 0; // is the last ack message. Also, lastAck+1 is the beginning of the sliding window.
 			int currentAck = 0;
 			int maxWindow = INIT_WIN_SIZE;
 			int window = INIT_WIN_SIZE;
 			int lastSeg = 0;
 			int endIsAck = 0;
-			int duplicateAck = 0;
+			int isRetransmit = 0; // boolean for RTT Karn's algorithm
+			int isFirstLoop = 0; // boolean for knowing if a given loop is at loop 1 or loop > 1
+			int duplicateAck = 0; // number of time we get a duplicate ack
 
-			printf("INITIALIZED FDSET\n");
+			// INIT FD_SET AND TIMEVAL
 			fd_set read_set;
 			FD_ZERO(&read_set);
 			FD_SET(socket_com, &read_set);
-			printf("INITIALIZED TIMEVAL\n");
-			struct timeval timeout;
+			struct timeval timeout, timeoutcp; // timeout and timeout_copy because timeout is undefined after select() whereas timeout_copy is not
+			struct timeval start, stop; // start-stop = Rond Time Trip
 			timeout.tv_sec=1;
 			timeout.tv_usec=INITIAL_TIMEOUT;
 
 			while (!endIsAck) {
+				isFirstLoop=1;
 				for (window; window>0; window--){
+					if (isFirstLoop) {
+						gettimeofday(&start, NULL); // reset the starting time
+						isFirstLoop=0; // reset the first loop flag
+						isRetransmit=0; // reset the retransmition flag
+					}
 					//send the messages
 					printf("sending : %d\n", lastSeg);
 					sendto(socket_com, bufferArray[lastSeg],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 					if (lastSeg<nbBuff-1) lastSeg++;
+
 				}
 
 				//select timeout on 1 ack
@@ -153,6 +162,13 @@ int main(int argc, const char* argv[]) {
 						sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 						FD_ZERO(&read_set);
 						FD_SET(socket_com, &read_set);
+
+						// put timeout to timeout*2 to avoid karn's algorithm infinite loop
+						timeoutcp.tv_sec = timeoutcp.tv_sec*2;
+						timeoutcp.tv_usec = timeoutcp.tv_usec*2;
+						printf("new rtt is %ld sec, %ld usec\n", timeoutcp.tv_sec, timeoutcp.tv_usec);
+						// put retransmition flag to 1
+						isRetransmit=1;
 						break;
 					default : //if a ack is receive
 						recvfrom(socket_com, ack, ackSize+3, 0, (struct sockaddr*) &listen_addr_com, &sockaddr_in_length );
@@ -160,6 +176,13 @@ int main(int argc, const char* argv[]) {
 						currentAck=atoi(ack);
 						printf ("ack is : %s | ack value is : %d\n", ack, currentAck);
 						if (currentAck>lastAck){
+							// Calculate new Rtt and set timeout only if we never retransmit
+							if (!isRetransmit) { 
+								gettimeofday(&stop, NULL); // get the time at receiving
+								timeoutcp.tv_sec = stop.tv_sec - start.tv_sec;
+								timeoutcp.tv_usec = stop.tv_usec - start.tv_usec;
+								printf("new rtt is %ld sec, %ld usec\n", timeoutcp.tv_sec, timeoutcp.tv_usec);
+							}
 							duplicateAck=0;
 							window+=currentAck-lastAck;
 							if (window>maxWindow) window=maxWindow;
@@ -170,12 +193,15 @@ int main(int argc, const char* argv[]) {
 							if (duplicateAck>=2) {
 								printf ("3 DUPLICATE, resend %d\n", lastAck+1);
 								sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+								isRetransmit=1;
 							}
 						}
 						break;
 				}
-				timeout.tv_sec=1;
-				timeout.tv_usec=INITIAL_TIMEOUT;
+
+
+				timeout.tv_sec=timeoutcp.tv_sec;
+				timeout.tv_usec=timeoutcp.tv_usec;
 
 				if (lastAck == nbBuff-1) endIsAck = 1;
 			}

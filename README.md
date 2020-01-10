@@ -1,4 +1,4 @@
-# TCPoUDP
+# NCP
 The goal of the project is to implement a TCP-like protocol over an UDP socket
 
 ## Tree hierarchy
@@ -28,3 +28,16 @@ If C or Java :
 !! Multiple client : 1 principal thread 3 way handshake : syn syn-ack+port ack then new thread which communicate on port
 
 Start the thread BEFORE the synack+port or we loose the first packet !
+
+## TODO
+- --Calcul du débit--
+- RTT to calcul the TimeOut
+- How to change de mode ?
+- Slow start
+- Congestion avoidance
+- NewReno
+
+## Point to talk about during presentation
+- Explain the karn's algorithm for RTT calcul, the infinite loop problem on timeout and its fix
+- Explain that we hardcode the initial timeout instead of calculing it on the synack-ack because it was struggling for peanuts
+
