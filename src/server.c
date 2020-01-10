@@ -127,6 +127,10 @@ int main(int argc, const char* argv[]) {
 			int isFirstLoop = 0; // boolean for knowing if a given loop is at loop 1 or loop > 1
 			int duplicateAck = 0; // number of time we get a duplicate ack
 
+			double sendingTime;
+			double sendingRate;
+			struct timeval startS, stopS;
+
 			// INIT FD_SET AND TIMEVAL
 			fd_set read_set;
 			FD_ZERO(&read_set);
@@ -135,6 +139,7 @@ int main(int argc, const char* argv[]) {
 			struct timeval start, stop; // start-stop = Rond Time Trip
 			timeout.tv_sec=1;
 			timeout.tv_usec=INITIAL_TIMEOUT;
+			gettimeofday(&startS, NULL);
 
 			while (!endIsAck) {
 				isFirstLoop=1;
@@ -208,6 +213,15 @@ int main(int argc, const char* argv[]) {
 
 			printf ("SENDING FIN, nbBuff=%d\n",nbBuff);
 			sendto(socket_com, "FIN", 3, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+			gettimeofday(&stopS, NULL);
+			sendingTime= (stopS.tv_sec - startS.tv_sec)*1000000 + (stopS.tv_usec - startS.tv_usec);
+			printf("Sending time: %f\n", sendingTime );
+			printf("File size: %d \n", fileSize );
+			printf(" StartS: %ld\n", startS.tv_sec);
+			printf(" StopS: %ld\n", stopS.tv_sec );
+			sendingRate= fileSize/sendingTime;
+			printf("Transmission rate: %f\n", sendingRate);
+
 			sleep(1);
 			close(socket_com);
 			return(EXIT_SUCCESS);
