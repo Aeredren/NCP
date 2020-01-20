@@ -205,7 +205,6 @@ int main(int argc, const char* argv[]) {
 				}
 
 
-				timeout.tv_sec=timeoutcp.tv_sec;
 				timeout.tv_usec=timeoutcp.tv_usec;
 
 				if (lastAck == nbBuff-1) endIsAck = 1;
