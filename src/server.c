@@ -140,6 +140,8 @@ int main(int argc, const char* argv[]) {
 			long time_taken;
 			timeout.tv_sec=0;
 			timeout.tv_usec=INITIAL_TIMEOUT;
+			timeoutcp.tv_sec=0;
+			timeoutcp.tv_usec=INITIAL_TIMEOUT;
 
 			while (!endIsAck){
 				isFirstLoop=1;
@@ -169,9 +171,8 @@ int main(int argc, const char* argv[]) {
 						FD_ZERO(&read_set);
 						FD_SET(socket_com, &read_set);
 
-						// put timeout to timeout*2 to avoid karn's algorithm infinite loop
+						// put timeout to timeout*RTT_TIMEOUT to avoid karn's algorithm infinite loop
 						timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*(timeoutcp.tv_usec*RTT_TIMEOUT);
-						printf("new rtt is %ld usec\n", timeoutcp.tv_usec);
 						// put retransmition flag to 1
 						isRetransmit=1;
 						break;
@@ -186,7 +187,7 @@ int main(int argc, const char* argv[]) {
 								stop=clock();// get the time at receiving
 								time_taken = 1000000*((double)(stop)-(double)(start))/(CLOCKS_PER_SEC);
 								timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*time_taken;
-								printf("new rtt is %ld usec, timetaken : %ld\n", timeoutcp.tv_usec, time_taken);
+								printf("timetaken : %ld\n", time_taken);
 							}
 							duplicateAck=0;
 							window+=currentAck-lastAck;
@@ -206,6 +207,7 @@ int main(int argc, const char* argv[]) {
 
 
 				timeout.tv_usec=timeoutcp.tv_usec;
+				printf("timeout is %ld usec %ld usec\n", timeoutcp.tv_usec, timeout.tv_usec);
 
 				if (lastAck == nbBuff-1) endIsAck = 1;
 			}
