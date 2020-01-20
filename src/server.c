@@ -186,7 +186,7 @@ int main(int argc, const char* argv[]) {
 								stop=clock();// get the time at receiving
 								time_taken = 1000000*((double)(stop)-(double)(start))/(CLOCKS_PER_SEC);
 								timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*time_taken;
-								printf("new rtt is %ld usec, timetaken : %ld", timeoutcp.tv_usec, time_taken, (double)start, (double)stop);
+								printf("new rtt is %ld usec, timetaken : %ld", timeoutcp.tv_usec, time_taken);
 							}
 							duplicateAck=0;
 							window+=currentAck-lastAck;
