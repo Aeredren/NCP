@@ -6,16 +6,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
 
+#define RTT_PERCENT 0.2
+#define RTT_TIMEOUT 1.5
+
 #define SEQ_NUMBER_LENGTH 6
-#define DATA_LENGTH 1018
+#define DATA_LENGTH 2042
 #define ACK_LENGTH 6
-#define SEG_SIZE 1024
+#define SEG_SIZE 2048
 #define INIT_WIN_SIZE 5
 #define INITIAL_TIMEOUT 500
 
@@ -105,7 +109,7 @@ int main(int argc, const char* argv[]) {
 			fseek(fp, 0, SEEK_SET);
 
 			//Number of buffers to create
-			nbBuff = (fileSize/1018)+2;
+			nbBuff = (fileSize/DATA_LENGTH)+2;
 			printf("Number of segment : %d\n", nbBuff );
 
 			bufferArray = malloc(sizeof(char*)*nbBuff);
@@ -127,25 +131,22 @@ int main(int argc, const char* argv[]) {
 			int isFirstLoop = 0; // boolean for knowing if a given loop is at loop 1 or loop > 1
 			int duplicateAck = 0; // number of time we get a duplicate ack
 
-			double sendingTime;
-			double sendingRate;
-			struct timeval startS, stopS;
-
 			// INIT FD_SET AND TIMEVAL
 			fd_set read_set;
 			FD_ZERO(&read_set);
 			FD_SET(socket_com, &read_set);
 			struct timeval timeout, timeoutcp; // timeout and timeout_copy because timeout is undefined after select() whereas timeout_copy is not
-			struct timeval start, stop; // start-stop = Rond Time Trip
-			timeout.tv_sec=1;
+			clock_t start, stop;// start-stop = Rond Time Trip
+			long time_taken;
+			timeout.tv_sec=0;
 			timeout.tv_usec=INITIAL_TIMEOUT;
-			gettimeofday(&startS, NULL);
 
-			while (!endIsAck) {
+			while (!endIsAck){
 				isFirstLoop=1;
 				for (window; window>0; window--){
 					if (isFirstLoop) {
-						gettimeofday(&start, NULL); // reset the starting time
+						//gettimeofday(&start, NULL); // reset the starting time
+						start=clock();
 						isFirstLoop=0; // reset the first loop flag
 						isRetransmit=0; // reset the retransmition flag
 					}
@@ -169,9 +170,8 @@ int main(int argc, const char* argv[]) {
 						FD_SET(socket_com, &read_set);
 
 						// put timeout to timeout*2 to avoid karn's algorithm infinite loop
-						timeoutcp.tv_sec = timeoutcp.tv_sec*2;
-						timeoutcp.tv_usec = timeoutcp.tv_usec*2;
-						printf("new rtt is %ld sec, %ld usec\n", timeoutcp.tv_sec, timeoutcp.tv_usec);
+						timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*(timeoutcp.tv_usec*RTT_TIMEOUT);
+						printf("new rtt is %ld usec\n", timeoutcp.tv_usec);
 						// put retransmition flag to 1
 						isRetransmit=1;
 						break;
@@ -183,10 +183,10 @@ int main(int argc, const char* argv[]) {
 						if (currentAck>lastAck){
 							// Calculate new Rtt and set timeout only if we never retransmit
 							if (!isRetransmit) { 
-								gettimeofday(&stop, NULL); // get the time at receiving
-								timeoutcp.tv_sec = stop.tv_sec - start.tv_sec;
-								timeoutcp.tv_usec = stop.tv_usec - start.tv_usec;
-								printf("new rtt is %ld sec, %ld usec\n", timeoutcp.tv_sec, timeoutcp.tv_usec);
+								stop=clock();// get the time at receiving
+								time_taken = 1000000*((double)(stop)-(double)(start))/(CLOCKS_PER_SEC);
+								timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*time_taken;
+								printf("new rtt is %ld usec, timetaken : %ld", timeoutcp.tv_usec, time_taken, (double)start, (double)stop);
 							}
 							duplicateAck=0;
 							window+=currentAck-lastAck;
@@ -213,14 +213,6 @@ int main(int argc, const char* argv[]) {
 
 			printf ("SENDING FIN, nbBuff=%d\n",nbBuff);
 			sendto(socket_com, "FIN", 3, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
-			gettimeofday(&stopS, NULL);
-			sendingTime= (stopS.tv_sec - startS.tv_sec)*1000000 + (stopS.tv_usec - startS.tv_usec);
-			printf("Sending time: %f\n", sendingTime );
-			printf("File size: %d \n", fileSize );
-			printf(" StartS: %ld\n", startS.tv_sec);
-			printf(" StopS: %ld\n", stopS.tv_sec );
-			sendingRate= fileSize/sendingTime;
-			printf("Transmission rate: %f\n", sendingRate);
 
 			sleep(1);
 			close(socket_com);
@@ -237,8 +229,8 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 	char* seqNb;
 
 	//copy of file into the buffer
-	char buffer[fileSize];
-	fread(buffer,fileSize,1,fp);
+	//char buffer[fileSize];
+	//fread(buffer,fileSize,1,fp);
 
 	bzero(bufferArray[0], SEG_SIZE);
 
@@ -247,13 +239,16 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 		seqNb = itoseq(i);
 		j = (i-1)*DATA_LENGTH;
 		memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
-		memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,DATA_LENGTH);
+		//memcpy(bufferArray[i]+SEQ_NUMBER_LENGH, buffer+j,DATA_LENGTH);
+		fread (bufferArray[i]+SEQ_NUMBER_LENGTH, 1, DATA_LENGTH, fp);
+		fseek(fp, DATA_LENGTH, j);
 	}
 
 	seqNb = itoseq(i);
 	j = (i-1)*DATA_LENGTH;
 	memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
-	memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,fileSize-j);
+	fread (bufferArray[i]+SEQ_NUMBER_LENGTH, 1, fileSize-j, fp);
+	//memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,fileSize-j);
 
 	return;
 }
