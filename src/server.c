@@ -17,9 +17,9 @@
 #define RTT_TIMEOUT 1.5
 
 #define SEQ_NUMBER_LENGTH 6
-#define DATA_LENGTH 2042
+#define DATA_LENGTH 1494
 #define ACK_LENGTH 6
-#define SEG_SIZE 2048
+#define SEG_SIZE 1500
 #define INIT_WIN_SIZE 5
 #define INITIAL_TIMEOUT 500
 
