@@ -16,7 +16,7 @@
 #define RTT_PERCENT 0.125
 #define RTT_PERCENT_DEVIATED 0.25
 #define RTO_FACTOR 1.5
-#define MAX_TIMEOUT 20000
+#define MAX_TIMEOUT 15000
 
 #define SEQ_NUMBER_LENGTH 6
 #define DATA_LENGTH 1494
@@ -197,7 +197,6 @@ int main(int argc, const char* argv[]) {
 								RTTd = (1-RTT_PERCENT_DEVIATED)*RTTs + RTT_PERCENT_DEVIATED*(RTT-RTTs);
 								RTO=RTTs+4*RTTd;
 								// augment window size
-								//if (step<4) step++;
 								maxWindow+=step;
 								window+=step;
 							}
