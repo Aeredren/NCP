@@ -13,8 +13,9 @@
 #include <sys/select.h>
 #include <arpa/inet.h>
 
-#define RTT_PERCENT 0.2
-#define RTT_TIMEOUT 1.2
+#define RTT_PERCENT 0.125
+#define RTT_PERCENT_DEVIATED 0.25
+#define RTO_FACTOR 1.5
 #define MAX_TIMEOUT 20000
 
 #define SEQ_NUMBER_LENGTH 6
@@ -127,6 +128,10 @@ int main(int argc, const char* argv[]) {
 			int maxWindow = INIT_WIN_SIZE;
 			int window = INIT_WIN_SIZE;
 			int step=1;
+			int RTT=INITIAL_TIMEOUT;
+			int RTTs=INITIAL_TIMEOUT;
+			int RTTd=INITIAL_TIMEOUT/2;
+			int RTO=INITIAL_TIMEOUT;
 			int lastSeg = 0;
 			int endIsAck = 0;
 			int isRetransmit = 0; // boolean for RTT Karn's algorithm
@@ -137,13 +142,10 @@ int main(int argc, const char* argv[]) {
 			fd_set read_set;
 			FD_ZERO(&read_set);
 			FD_SET(socket_com, &read_set);
-			struct timeval timeout, timeoutcp; // timeout and timeout_copy because timeout is undefined after select() whereas timeout_copy is not
+			struct timeval timeout; // timeout and timeout_copy because timeout is undefined after select() whereas timeout_copy is not
 			clock_t start, stop;// start-stop = Rond Time Trip
-			long time_taken;
 			timeout.tv_sec=0;
 			timeout.tv_usec=INITIAL_TIMEOUT;
-			timeoutcp.tv_sec=0;
-			timeoutcp.tv_usec=INITIAL_TIMEOUT;
 
 			while (!endIsAck){
 				isFirstLoop=1;
@@ -174,7 +176,7 @@ int main(int argc, const char* argv[]) {
 						FD_SET(socket_com, &read_set);
 
 						// put timeout to timeout*RTT_TIMEOUT to avoid karn's algorithm infinite loop
-						timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*(timeoutcp.tv_usec*RTT_TIMEOUT);
+						RTO = RTO*RTO_FACTOR;
 						// put retransmition flag to 1
 						isRetransmit=1;
 						maxWindow=maxWindow/2+1;
@@ -190,9 +192,10 @@ int main(int argc, const char* argv[]) {
 							// Calculate new Rtt and set timeout only if we never retransmit
 							if (!isRetransmit) { 
 								stop=clock();// get the time at receiving
-								time_taken = 1000000*((double)(stop)-(double)(start))/(CLOCKS_PER_SEC);
-								timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*time_taken;
-								printf("timetaken : %ld\n", time_taken);
+								RTT = 1000000*((double)(stop)-(double)(start))/(CLOCKS_PER_SEC);
+								RTTs = (1-RTT_PERCENT)*RTTs + RTT_PERCENT*RTT;
+								RTTd = (1-RTT_PERCENT_DEVIATED)*RTTs + RTT_PERCENT_DEVIATED*(RTT-RTTs);
+								RTO=RTTs+4*RTTd;
 								// augment window size
 								//if (step<4) step++;
 								maxWindow+=step;
@@ -213,14 +216,15 @@ int main(int argc, const char* argv[]) {
 								step=1;
 								if (window>maxWindow) window=maxWindow;
 								duplicateAck=0;
+								//RTO = RTO*RTO_FACTOR;
 							}
 						}
 						break;
 				}
 
-				timeout.tv_usec=timeoutcp.tv_usec;	
-				if (timeoutcp.tv_usec > MAX_TIMEOUT) timeout.tv_usec=MAX_TIMEOUT;
-				printf("RTT (timeout) %ld | window %d\n", timeout.tv_usec, maxWindow);
+				if (RTO > MAX_TIMEOUT) RTO=MAX_TIMEOUT;
+				timeout.tv_usec=RTO;	
+				printf("RTT:%d,%d,%d | RTO:%d | TIMEOUT:%ld | window:%d\n", RTT, RTTs, RTTd, RTO, timeout.tv_usec, maxWindow);
 
 				if (lastAck == nbBuff-1) endIsAck = 1;
 			}
