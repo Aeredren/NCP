@@ -7,3 +7,6 @@ bin/server.x86_64
 *.jpg
 *.jpeg
 *.hex
+copy*
+files/*
+trace*

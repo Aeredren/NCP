@@ -14,7 +14,8 @@
 #include <arpa/inet.h>
 
 #define RTT_PERCENT 0.2
-#define RTT_TIMEOUT 1.5
+#define RTT_TIMEOUT 1.2
+#define MAX_TIMEOUT 20000
 
 #define SEQ_NUMBER_LENGTH 6
 #define DATA_LENGTH 1494
@@ -125,6 +126,7 @@ int main(int argc, const char* argv[]) {
 			int currentAck = 0;
 			int maxWindow = INIT_WIN_SIZE;
 			int window = INIT_WIN_SIZE;
+			int step=1;
 			int lastSeg = 0;
 			int endIsAck = 0;
 			int isRetransmit = 0; // boolean for RTT Karn's algorithm
@@ -175,6 +177,9 @@ int main(int argc, const char* argv[]) {
 						timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*(timeoutcp.tv_usec*RTT_TIMEOUT);
 						// put retransmition flag to 1
 						isRetransmit=1;
+						maxWindow=maxWindow/2+1;
+						step=1;
+						if (window>maxWindow) window=maxWindow;
 						break;
 					default : //if a ack is receive
 						recvfrom(socket_com, ack, ackSize+3, 0, (struct sockaddr*) &listen_addr_com, &sockaddr_in_length );
@@ -188,6 +193,10 @@ int main(int argc, const char* argv[]) {
 								time_taken = 1000000*((double)(stop)-(double)(start))/(CLOCKS_PER_SEC);
 								timeoutcp.tv_usec =RTT_PERCENT*timeoutcp.tv_usec + (1-RTT_PERCENT)*time_taken;
 								printf("timetaken : %ld\n", time_taken);
+								// augment window size
+								//if (step<4) step++;
+								maxWindow+=step;
+								window+=step;
 							}
 							duplicateAck=0;
 							window+=currentAck-lastAck;
@@ -200,14 +209,18 @@ int main(int argc, const char* argv[]) {
 								printf ("3 DUPLICATE, resend %d\n", lastAck+1);
 								sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 								isRetransmit=1;
+								maxWindow=maxWindow/2+1;
+								step=1;
+								if (window>maxWindow) window=maxWindow;
+								duplicateAck=0;
 							}
 						}
 						break;
 				}
 
-
-				timeout.tv_usec=timeoutcp.tv_usec;
-				printf("timeout is %ld usec %ld usec\n", timeoutcp.tv_usec, timeout.tv_usec);
+				timeout.tv_usec=timeoutcp.tv_usec;	
+				if (timeoutcp.tv_usec > MAX_TIMEOUT) timeout.tv_usec=MAX_TIMEOUT;
+				printf("RTT (timeout) %ld | window %d\n", timeout.tv_usec, maxWindow);
 
 				if (lastAck == nbBuff-1) endIsAck = 1;
 			}
