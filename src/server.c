@@ -132,6 +132,7 @@ int main(int argc, const char* argv[]) {
 			int RTTs=INITIAL_TIMEOUT;
 			int RTTd=INITIAL_TIMEOUT/2;
 			int RTO=INITIAL_TIMEOUT;
+			int sendSize=SEG_SIZE;
 			int lastSeg = 0;
 			int endIsAck = 0;
 			int isRetransmit = 0; // boolean for RTT Karn's algorithm
@@ -158,7 +159,7 @@ int main(int argc, const char* argv[]) {
 					}
 					//send the messages
 					printf("sending : %d\n", lastSeg);
-					sendto(socket_com, bufferArray[lastSeg],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+					sendto(socket_com, bufferArray[lastSeg],sendSize, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 					if (lastSeg<nbBuff-1) lastSeg++;
 
 				}
@@ -171,7 +172,7 @@ int main(int argc, const char* argv[]) {
 						break;
 					case 0 : //if we timed out
 						printf ("TIMEOUT, resend %d\n", lastAck+1);
-						sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+						sendto(socket_com, bufferArray[lastAck+1],sendSize, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 						FD_ZERO(&read_set);
 						FD_SET(socket_com, &read_set);
 
@@ -205,11 +206,15 @@ int main(int argc, const char* argv[]) {
 							if (window>maxWindow) window=maxWindow;
 							lastAck=currentAck;
 							printf ("Last ack = %d\n", lastAck);
+							if (currentAck==nbBuff-1){
+								sendSize = fileSize%DATA_LENGTH+SEQ_NUMBER_LENGTH;
+								printf ("SEND SIZE SET TO LAST SEGMENT SIZE %d", sendSize);
+							}
 						}else if (currentAck==lastAck) {
 							duplicateAck++;
 							if (duplicateAck>=2) {
 								printf ("3 DUPLICATE, resend %d\n", lastAck+1);
-								sendto(socket_com, bufferArray[lastAck+1],SEG_SIZE, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
+								sendto(socket_com, bufferArray[lastAck+1],sendSize, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 								isRetransmit=1;
 								maxWindow=maxWindow/2+1;
 								step=1;
@@ -256,7 +261,6 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 		seqNb = itoseq(i);
 		j = (i-1)*DATA_LENGTH;
 		memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
-		//memcpy(bufferArray[i]+SEQ_NUMBER_LENGH, buffer+j,DATA_LENGTH);
 		fread (bufferArray[i]+SEQ_NUMBER_LENGTH, 1, DATA_LENGTH, fp);
 		fseek(fp, DATA_LENGTH, j);
 	}
@@ -265,7 +269,8 @@ void bufferingFile(char** bufferArray, FILE* fp, int fileSize, int nbBuff){
 	j = (i-1)*DATA_LENGTH;
 	memcpy(bufferArray[i],seqNb, SEQ_NUMBER_LENGTH);
 	fread (bufferArray[i]+SEQ_NUMBER_LENGTH, 1, fileSize-j, fp);
-	//memcpy(bufferArray[i]+SEQ_NUMBER_LENGTH, buffer+j,fileSize-j);
+	
+	printf ("SEND SIZE SET TO LAST SEGMENT SIZE %d", (fileSize-j+SEQ_NUMBER_LENGTH));
 
 	return;
 }
