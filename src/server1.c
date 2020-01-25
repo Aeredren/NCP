@@ -180,7 +180,7 @@ int main(int argc, const char* argv[]) {
 						RTO = RTO*RTO_FACTOR;
 						// put retransmition flag to 1
 						isRetransmit=1;
-					//	maxWindow=maxWindow/2+1;
+						maxWindow=maxWindow/2+1;
 						step=1;
 						if (window>maxWindow) window=maxWindow;
 						break;
@@ -216,7 +216,7 @@ int main(int argc, const char* argv[]) {
 								printf ("3 DUPLICATE, resend %d\n", lastAck+1);
 								sendto(socket_com, bufferArray[lastAck+1],sendSize, MSG_CONFIRM, (const struct sockaddr *) &listen_addr_com, sockaddr_in_length);
 								isRetransmit=1;
-							//	maxWindow=maxWindow/2+1;
+								maxWindow=maxWindow/2+1;
 								step=1;
 								if (window>maxWindow) window=maxWindow;
 								duplicateAck=0;
