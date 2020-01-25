@@ -198,7 +198,7 @@ int main(int argc, const char* argv[]) {
 								RTTd = (1-RTT_PERCENT_DEVIATED)*RTTs + RTT_PERCENT_DEVIATED*(RTT-RTTs);
 								RTO=RTTs+4*RTTd;
 								// augment window size
-								maxWindow+=step;
+							//	maxWindow+=step;
 								window+=step;
 							}
 							duplicateAck=0;
