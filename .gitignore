@@ -1,6 +1,6 @@
 *.o
 bin/client.x86_64
-bin/server*
+bin/server.x86_64
 !.c
 .nfs*
 *.png
