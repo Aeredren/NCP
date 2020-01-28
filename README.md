@@ -9,6 +9,9 @@ The goal of the project is to implement a TCP-like protocol over an UDP socket
 - ./subject -> the project instructions and expectations .pdf
 - ./obj -> .o C object files
 
+## How to use :
+Files serve by the server MUST be located in the "files" directory.
+
 ## How to write to file nicely
 DO NOT use string specific fn because we gonna work on not string files !!
 
@@ -38,6 +41,12 @@ Start the thread BEFORE the synack+port or we loose the first packet !
 - NewReno
 
 ## Point to talk about during presentation
-- Explain the karn's algorithm for RTT calcul, the infinite loop problem on timeout and its fix
+- What we get about the client...
+- How we handle multiple client : 1 process per client + process to accept client
+- How we parse the file -> all format in one Array
+- Congestion windows : No slow start because random
 - Explain that we hardcode the initial timeout instead of calculing it on the synack-ack because it was struggling for peanuts
+- Explain the karn's algorithm for RTT calcul, the infinite loop problem on timeout and its fix, RTTd and RTTs
+
+
 

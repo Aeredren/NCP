@@ -1,6 +1,5 @@
 *.o
-bin/client.x86_64
-bin/server.x86_64
+bin/client*
 !.c
 .nfs*
 *.png
@@ -10,3 +9,4 @@ bin/server.x86_64
 copy*
 files/*
 trace*
+*.swp

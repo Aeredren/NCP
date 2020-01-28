@@ -1,10 +1,16 @@
-all: server 
+all: serveur1 serveur2 serveur3
 
-server: server.o
-	gcc -Wall ./obj/server.o -o ./bin/server.x86_64
+serveur1: serveur.o
+	gcc -Wall ./obj/serveur.o -o ./bin/serveur1-TeamTCDP
 
-server.o: ./src/server.c
-	gcc -Wall -c ./src/server.c -o ./obj/server.o
+serveur.o: ./src/serveur.c
+	gcc -Wall -c ./src/serveur.c -o ./obj/serveur.o
+
+serveur2: serveur1
+	ln ./bin/serveur1-TeamTCDP ./bin/serveur2-TeamTCDP
+
+serveur3: serveur1
+	ln ./bin/serveur1-TeamTCDP ./bin/serveur3-TeamTCDP
 
 clean:
-	rm -fv ./obj/*  ./bin/server.x86_64
+	rm -fv ./obj/*  ./bin/serveur*
